@@ -1142,24 +1142,6 @@ class DiscordAdapter(BasePlatformAdapter):
                         guild_id,
                     )
 
-            @self._client.event
-            async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
-                """AI 팀 확장: 이모지 반응(👍/👎) 디스패처 (외부 모듈 로드 시)."""
-                try:
-                    if hasattr(adapter_self, "_handle_team_reaction_add"):
-                        await adapter_self._handle_team_reaction_add(payload)
-                except Exception as e:
-                    logger.debug("[Discord] AI 팀 반응 처리 실패: %s", e)
-
-            @self._client.event
-            async def on_guild_channel_delete(channel):
-                """AI 팀 확장: 채널 삭제 시 잔여물 정리 (외부 모듈 로드 시)."""
-                try:
-                    if hasattr(adapter_self, "_cleanup_deleted_channel_artifacts"):
-                        adapter_self._cleanup_deleted_channel_artifacts(channel)
-                except Exception as e:
-                    logger.warning("[Discord] 채널 삭제 잔여물 정리 실패: %s", e)
-
             # Register slash commands
             if self._slash_commands:
                 self._register_slash_commands()
