@@ -1495,6 +1495,18 @@ def _classify_by_error_code(
     """Classify by structured error codes from the response body."""
     code_lower = error_code.lower()
 
+    # Z.AI / GLM (zai): HTTP 200 + error body code "1305" / type
+    # "overloaded_error". Non-standard — Anthropic's canonical overloaded is
+    # HTTP 529, but zai surfaces capacity exhaustion inside a 200 body, so the
+    # status-code path never reaches it. Map here so the gateway's overloaded
+    # fallback (conversation_loop.py) can fire instead of burning all retries.
+    if code_lower == "1305":
+        return result_fn(
+            FailoverReason.overloaded,
+            retryable=True,
+            should_fallback=True,
+        )
+
     if code_lower in {"resource_exhausted", "throttled", "rate_limit_exceeded"}:
         return result_fn(
             FailoverReason.rate_limit,

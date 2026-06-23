@@ -4857,6 +4857,31 @@ def run_conversation(
                             _retry.primary_recovery_attempted = False
                             continue
 
+                # ── Overloaded fallback ────────────────────────────────
+                # A provider returning overloaded/503/529 (e.g. zai's HTTP 200
+                # + error code 1305) is capacity-starved, not a credential or
+                # quota problem — the primary won't recover within the retry
+                # window. Give it 2 short retries (≈2s+4s) to clear a transient
+                # spike, then switch to the fallback model instead of burning
+                # the full retry budget. Falls through to normal retry when the
+                # fallback chain is empty or exhausted. Threshold is tunable.
+                is_overloaded = classified.reason == FailoverReason.overloaded
+                if (
+                    is_overloaded
+                    and retry_count >= 2
+                    and agent._fallback_index < len(agent._fallback_chain)
+                ):
+                    agent._buffer_status(
+                        "⚠️ Provider overloaded — switching to fallback model..."
+                    )
+                    if agent._try_activate_fallback(reason=classified.reason):
+                        active_system_prompt = _sync_failover_system_message(
+                            agent, api_messages, active_system_prompt)
+                        retry_count = 0
+                        compression_attempts = 0
+                        _retry.primary_recovery_attempted = False
+                        continue
+
                 # ── Auth-failure provider failover ───────────────────────
                 # A 401/403 that survives the per-provider credential-refresh
                 # attempt above (each guarded by its own
