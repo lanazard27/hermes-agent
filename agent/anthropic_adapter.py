@@ -3034,6 +3034,16 @@ def build_anthropic_kwargs(
                 # Anthropic requires temperature=1 when thinking is enabled on older models
                 kwargs["temperature"] = 1
                 kwargs["max_tokens"] = max(effective_max_tokens, budget + 4096)
+                # z.ai GLM-5.2: reasoning_effort controls thinking depth (max, high, medium).
+                # budget_tokens alone is ignored on the OpenAI-compat endpoint.
+                # Map Hermes effort → z.ai reasoning_effort:
+                #   xhigh → max (z.ai maps xhigh to max anyway)
+                #   high  → high
+                #   medium → medium (z.ai maps medium→high internally)
+                #   low   → low (z.ai maps low→high internally)
+                _zai_effort_map = {"xhigh": "max", "high": "high", "medium": "medium", "low": "low", "minimal": "low"}
+                _zai_effort = _zai_effort_map.get(effort, "high")
+                kwargs["reasoning_effort"] = _zai_effort
 
     # ── Strip sampling params on 4.7+ ─────────────────────────────────
     # Opus 4.7 rejects any non-default temperature/top_p/top_k with a 400.
