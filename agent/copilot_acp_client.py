@@ -229,6 +229,22 @@ def _render_message_content(content: Any) -> str:
                 text = item.get("text")
                 if isinstance(text, str) and text.strip():
                     parts.append(text.strip())
+                elif item.get("type") == "image_url":
+                    # ACP transport can't carry images directly — preserve the
+                    # URL/path so the subagent can analyze it via vision_analyze.
+                    url = ""
+                    iu = item.get("image_url")
+                    if isinstance(iu, dict):
+                        url = str(iu.get("url") or "")
+                    elif isinstance(iu, str):
+                        url = iu
+                    if url:
+                        parts.append(
+                            f"[Image attached at: {url}. "
+                            f"Use vision_analyze with image_url=\"{url}\" to analyze it.]"
+                        )
+                    else:
+                        parts.append("[An image was attached but its location could not be determined.]")
         return "\n".join(parts).strip()
     return str(content).strip()
 
