@@ -940,6 +940,28 @@ class TestBuildAnthropicKwargs:
         assert kwargs["max_tokens"] >= 16000 + 4096
         assert "output_config" not in kwargs
 
+    def test_zai_reasoning_effort_routed_via_extra_body_not_top_level(self):
+        # Regression guard: z.ai / GLM reasoning_effort must ride inside
+        # extra_body, NOT as a top-level kwarg. The Anthropic SDK's
+        # messages.stream()/create() rejects `reasoning_effort` with a
+        # non-retryable TypeError ("got an unexpected keyword argument
+        # 'reasoning_effort'") — which nukes every z.ai turn when thinking
+        # is enabled. GLM is not adaptive-thinking capable, so it takes the
+        # manual-thinking (else) branch where this field is injected.
+        kwargs = build_anthropic_kwargs(
+            model="glm-5.2",
+            messages=[{"role": "user", "content": "think"}],
+            tools=None,
+            max_tokens=4096,
+            reasoning_config={"enabled": True, "effort": "high"},
+            base_url="https://api.z.ai/api/anthropic",
+        )
+        assert kwargs["thinking"]["type"] == "enabled"
+        # Must NOT be a top-level kwarg (the SDK would TypeError on it).
+        assert "reasoning_effort" not in kwargs
+        # Must be forwarded in the request body, where z.ai reads it.
+        assert kwargs["extra_body"]["reasoning_effort"] == "high"
+
     def test_reasoning_config_maps_to_adaptive_thinking_for_4_6_models(self):
         kwargs = build_anthropic_kwargs(
             model="claude-opus-4-6",

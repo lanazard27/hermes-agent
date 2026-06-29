@@ -3043,7 +3043,13 @@ def build_anthropic_kwargs(
                 #   low   → low (z.ai maps low→high internally)
                 _zai_effort_map = {"xhigh": "max", "high": "high", "medium": "medium", "low": "low", "minimal": "low"}
                 _zai_effort = _zai_effort_map.get(effort, "high")
-                kwargs["reasoning_effort"] = _zai_effort
+                # Route via extra_body, not a top-level kwarg: the Anthropic
+                # SDK's messages.stream()/create() rejects `reasoning_effort`
+                # with a non-retryable TypeError (only `thinking` is a known
+                # param). extra_body is forwarded verbatim in the request body,
+                # which is where z.ai's /anthropic endpoint reads it. Mirrors
+                # the fast-mode speed field below (#2565).
+                kwargs.setdefault("extra_body", {})["reasoning_effort"] = _zai_effort
 
     # ── Strip sampling params on 4.7+ ─────────────────────────────────
     # Opus 4.7 rejects any non-default temperature/top_p/top_k with a 400.
